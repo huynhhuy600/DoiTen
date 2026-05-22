@@ -46,20 +46,11 @@ define('OUTPUT_DIR',    BASE_DIR . DIRECTORY_SEPARATOR . 'output'    . DIRECTORY
 define('TEMP_DIR',      BASE_DIR . DIRECTORY_SEPARATOR . 'temp'      . DIRECTORY_SEPARATOR);
 define('TEMPLATE_DIR',  BASE_DIR . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY_SEPARATOR);
 
-// URL gốc (không có dấu / cuối)
 $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 if ($scriptDir === '/') $scriptDir = '';
 
-$protocol = 'http';
-if ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
-    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
-    $protocol = 'https';
-}
-$host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
-
-define('BASE_URL', preg_replace('#/api$#', '', 
-    $protocol . '://' . $host . $scriptDir
-));
+// Sử dụng đường dẫn tương đối để tránh mọi lỗi liên quan đến Proxy/HTTPS/Port
+define('BASE_URL', preg_replace('#/api$#', '', $scriptDir));
 
 // Độ phân giải render PDF (DPI): 100=rất nhanh, 150=nhanh, 200=tốt, 300=chậm
 define('OCR_DPI', 150);
@@ -69,7 +60,7 @@ define('OCR_DPI', 150);
 define('TESSERACT_THREADS', 0); // 0 = auto (dùng tất cả)
 
 // Ghostscript: Số luồng render song song
-define('GS_THREADS', 4); // Tăng nếu máy có nhiều core
+define('GS_THREADS', 8); // Tăng nếu máy có nhiều core
 
 // Kích thước file tối đa (200MB)
 define('MAX_FILE_SIZE', 200 * 1024 * 1024);

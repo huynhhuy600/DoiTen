@@ -1,0 +1,8 @@
+/uploads/
+/temp/
+/output/
+/training_data/
+*.zip
+*.pdf
+.idea/
+.vscode/

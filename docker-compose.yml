@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: ocr_app
+    ports:
+      - "80:80"
+    volumes:
+      - .:/var/www/html
+      - ./uploads:/var/www/html/uploads
+      - ./output:/var/www/html/output
+      - ./temp:/var/www/html/temp
+    restart: always
+    environment:
+      # Tesseract dùng tất cả CPU cores
+      - OMP_NUM_THREADS=0
+      - OMP_THREAD_LIMIT=0
+    deploy:
+      resources:
+        limits:
+          # Tăng số này = số CPU tối đa container được dùng (0 = không giới hạn)
+          cpus: '0'        # 0 = không giới hạn CPU
+          memory: 4G       # Giới hạn RAM tối đa
+        reservations:
+          cpus: '2'        # Đảm bảo tối thiểu 2 CPU cores
+          memory: 1G       # Đảm bảo tối thiểu 1GB RAM

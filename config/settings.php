@@ -49,10 +49,16 @@ define('TEMPLATE_DIR',  BASE_DIR . DIRECTORY_SEPARATOR . 'templates' . DIRECTORY
 // URL gốc (không có dấu / cuối)
 $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
 if ($scriptDir === '/') $scriptDir = '';
+
+$protocol = 'http';
+if ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || 
+    (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+    $protocol = 'https';
+}
+$host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
+
 define('BASE_URL', preg_replace('#/api$#', '', 
-    (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on' ? 'https' : 'http')
-    . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
-    . $scriptDir
+    $protocol . '://' . $host . $scriptDir
 ));
 
 // Độ phân giải render PDF (DPI): 100=rất nhanh, 150=nhanh, 200=tốt, 300=chậm

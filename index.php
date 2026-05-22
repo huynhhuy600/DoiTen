@@ -389,7 +389,12 @@ function selectPage(i) {
   const txt = document.getElementById('viewerZoomVal');
   if (txt) txt.textContent = 'Vừa khung';
   
-  document.getElementById('viewerImg').innerHTML = `<img src="${p.img_url}" alt="Trang ${p.page}" style="width:100%; max-width:100%; max-height:80vh; object-fit:contain; transition: width 0.1s ease; flex-shrink:0" draggable="false">`;
+  document.getElementById('viewerImg').innerHTML = `
+    <div style="position:relative; width:100%; height:100%; min-height:80vh; display:flex; justify-content:center; align-items:center;">
+      <img src="${p.thumb_url}" alt="Trang ${p.page} mờ" style="position:absolute; width:100%; max-width:100%; max-height:80vh; object-fit:contain; filter:blur(5px); opacity:0.7;">
+      <img src="${p.img_url}" alt="Trang ${p.page}" style="position:relative; width:100%; max-width:100%; max-height:80vh; object-fit:contain; transition: width 0.1s ease; flex-shrink:0" draggable="false" onload="this.previousElementSibling.style.display='none'" onerror="this.previousElementSibling.style.opacity='1'; this.previousElementSibling.style.filter='none'">
+    </div>
+  `;
   renderOcrResult(i);
 }
 
@@ -705,6 +710,15 @@ function rotateCurrentPage() {
     });
 }
 
+function formatTimeRemaining(ms) {
+  if (!isFinite(ms) || ms < 0 || isNaN(ms)) return 'Đang tính...';
+  const totalSeconds = Math.round(ms / 1000);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m > 0) return `${m}p ${s}s`;
+  return `${s}s`;
+}
+
 async function ocrAll() {
   if (!sessionId) return;
   const btn = document.getElementById('btnOcrAll');
@@ -716,6 +730,7 @@ async function ocrAll() {
   const total = pagesData.length;
   const CONCURRENCY = 6; // Chạy song song 6 trang cùng lúc (tăng tốc độ OCR)
   let currentIndex = 0;
+  const startTime = Date.now();
   
   async function worker() {
     while (currentIndex < total) {
@@ -727,7 +742,11 @@ async function ocrAll() {
       } catch(e) {}
       
       doneCount++;
-      txt.textContent = `${doneCount}/${total}`;
+      const elapsed = Date.now() - startTime;
+      const avgTime = elapsed / doneCount;
+      const remaining = (total - doneCount) * avgTime;
+      
+      txt.textContent = `${doneCount}/${total} - Còn lại: ${formatTimeRemaining(remaining)}`;
       fill.style.width = (doneCount/total*100)+'%';
       
       renderSidebar();

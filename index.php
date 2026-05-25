@@ -258,36 +258,62 @@ let wsFiles = [];
 let wsFilesStatus = {}; // Lưu trạng thái đã xử lý: { 'filename.pdf': true }
 let currentWorkspaceFilename = '';
 
-function handleMultipleUpload(files) {
+async function handleMultipleUpload(files) {
   if (!files || files.length === 0) return;
-  document.getElementById('uploadProgress').style.display = 'block';
-  setProgress(10, 'Đang chuẩn bị tải lên...');
   
-  const fd = new FormData();
-  if (wsSessionId) fd.append('session_id', wsSessionId);
+  const pdfFiles = [];
   for(let i=0; i<files.length; i++) {
     if (files[i].type === 'application/pdf' || files[i].name.toLowerCase().endsWith('.pdf')) {
-      fd.append('pdfs[]', files[i]);
+      pdfFiles.push(files[i]);
     }
   }
   
-  fetch(BASE_URL + '/api/upload_multiple.php', {method:'POST', body:fd})
-    .then(async r => {
+  if (pdfFiles.length === 0) {
+    alert('Không có file PDF nào được chọn!');
+    return;
+  }
+
+  document.getElementById('uploadProgress').style.display = 'block';
+  setProgress(5, `Chuẩn bị tải lên ${pdfFiles.length} file...`);
+  
+  let successCount = 0;
+  let hasError = false;
+
+  for (let i = 0; i < pdfFiles.length; i++) {
+    const file = pdfFiles[i];
+    setProgress( 5 + Math.round((i / pdfFiles.length) * 90), `Đang tải lên ${i + 1}/${pdfFiles.length}...` );
+    
+    const fd = new FormData();
+    if (wsSessionId) fd.append('session_id', wsSessionId);
+    fd.append('pdfs[]', file);
+
+    try {
+      const r = await fetch(BASE_URL + '/api/upload_multiple.php', { method: 'POST', body: fd });
       const text = await r.text();
-      try { return JSON.parse(text); }
-      catch(e) { throw new Error('Server error: ' + text.substring(0,100)); }
-    })
-    .then(d=>{
-      if (!d.success) { alert(d.errors?.join('\n') || 'Lỗi upload'); return; }
-      wsSessionId = d.session_id;
-      wsFiles = d.files;
-      renderWorkspaceFiles();
-      setProgress(100, '✅ Tải lên thành công');
-      setTimeout(() => document.getElementById('uploadProgress').style.display='none', 1000);
-    }).catch(e=>{
-      alert('Lỗi kết nối khi tải file!');
-      document.getElementById('uploadProgress').style.display='none';
-    });
+      const d = JSON.parse(text);
+      
+      if (!d.success) {
+        console.error('Lỗi upload:', d.errors);
+        hasError = true;
+      } else {
+        wsSessionId = d.session_id;
+        wsFiles = d.files;
+        successCount++;
+        renderWorkspaceFiles();
+      }
+    } catch (e) {
+      console.error('Lỗi kết nối tải file:', e);
+      hasError = true;
+    }
+  }
+
+  if (successCount === 0) {
+    alert('Không thể tải lên file nào. Vui lòng thử lại!');
+    document.getElementById('uploadProgress').style.display = 'none';
+  } else {
+    setProgress(100, `✅ Đã tải xong ${successCount}/${pdfFiles.length} file` + (hasError ? ' (có lỗi)' : ''));
+    setTimeout(() => document.getElementById('uploadProgress').style.display='none', 2000);
+  }
 }
 
 function renderWorkspaceFiles() {

@@ -5,10 +5,11 @@ require_once dirname(__DIR__) . '/config/settings.php';
 
 $sid  = preg_replace('/[^a-zA-Z0-9_.]/', '', $_GET['sid']  ?? '');
 $page = max(1, intval($_GET['page'] ?? 1));
-
-if (!$sid) {
-    jsonResponse(['success' => false, 'error' => 'Thiếu session_id']);
+if (!$sid || $page <= 0) {
+    jsonResponse(['success'=>false,'error'=>'Thiếu tham số']);
 }
+
+logActiveUser($sid);
 
 $sessionTempDir = TEMP_DIR . $sid . DIRECTORY_SEPARATOR;
 $imgFile = $sessionTempDir . sprintf('page_%04d.png', $page);

@@ -24,6 +24,8 @@ $sessionTempDir   = TEMP_DIR   . $sessionId . DIRECTORY_SEPARATOR;
 if (!is_dir($sessionUploadDir)) mkdir($sessionUploadDir, 0755, true);
 if (!is_dir($sessionTempDir)) mkdir($sessionTempDir, 0755, true);
 
+logActiveUser($sessionId);
+
 // Xóa file cũ trong temp (nếu có)
 array_map('unlink', glob("$sessionTempDir/*.*"));
 

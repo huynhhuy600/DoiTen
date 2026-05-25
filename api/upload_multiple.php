@@ -8,11 +8,12 @@ $sid = preg_replace('/[^a-zA-Z0-9_.]/', '', $_POST['session_id'] ?? '');
 if (!$sid) {
     $sid = 'ws_' . date('Ymd_His') . '_' . substr(md5(uniqid()), 0, 6);
 }
-
 $uploadDir = UPLOAD_DIR . $sid . DIRECTORY_SEPARATOR;
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0755, true);
 }
+
+logActiveUser($sid);
 
 $uploadedFiles = [];
 $errors = [];

@@ -11,6 +11,8 @@ services:
       - ./uploads:/var/www/html/uploads
       - ./output:/var/www/html/output
       - ./temp:/var/www/html/temp
+    command: >
+      bash -c "chown -R www-data:www-data /var/www/html/uploads /var/www/html/output /var/www/html/temp 2>/dev/null || true && apache2-foreground"
     restart: always
     environment:
       # Tesseract dùng tất cả CPU cores

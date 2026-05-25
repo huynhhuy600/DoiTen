@@ -72,3 +72,18 @@ function jsonResponse(array $data, int $status = 200): void {
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+// Hàm ghi log trạng thái active của user cho trang Dashboard
+function logActiveUser(string $sid): void {
+    if (!$sid) return;
+    $infoFile = TEMP_DIR . $sid . DIRECTORY_SEPARATOR . 'info.json';
+    $dir = dirname($infoFile);
+    if (is_dir($dir)) {
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+        $data = [
+            'ip' => $ip,
+            'last_active' => time()
+        ];
+        file_put_contents($infoFile, json_encode($data));
+    }
+}

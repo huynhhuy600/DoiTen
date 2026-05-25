@@ -49,12 +49,15 @@ $docJson  = json_encode($docTypes, JSON_UNESCAPED_UNICODE);
   </div>
 
   <div class="groups-table">
-    <div class="groups-header"><span class="groups-title">📦 Danh sách File trong Phiên làm việc</span></div>
+    <div class="groups-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <span class="groups-title">📦 Danh sách File trong Phiên làm việc</span>
+      <button class="btn btn-secondary btn-sm" id="btnMergeFiles" onclick="mergeWorkspaceFiles()" style="display:none">📦 Ghép tất cả các file này thành 1</button>
+    </div>
     <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>STT</th><th>Tên File</th><th>Dung lượng</th><th>Thao tác</th></tr></thead>
+        <thead><tr><th><input type="checkbox" id="checkAllMerge" onclick="toggleAllMerge(this.checked)"></th><th>STT</th><th>Tên File</th><th>Dung lượng</th><th>Thao tác</th></tr></thead>
         <tbody id="wsFilesBody">
-          <tr><td colspan="4" style="text-align:center; padding: 40px; color:var(--text3)">Chưa có file nào. Vui lòng chọn file hoặc thư mục để tải lên.</td></tr>
+          <tr><td colspan="5" style="text-align:center; padding: 40px; color:var(--text3)">Chưa có file nào. Vui lòng chọn file hoặc thư mục để tải lên.</td></tr>
         </tbody>
       </table>
     </div>
@@ -168,10 +171,8 @@ $docJson  = json_encode($docTypes, JSON_UNESCAPED_UNICODE);
       </div>
 
       <div class="config-group" id="multipleSerialGroup" style="display:none; background:var(--bg3); padding:10px; border-radius:8px;">
-        <label class="config-label">Nhập 3 Số seri GCN</label>
-        <input type="text" class="field-input" id="serialGcn1" placeholder="Số seri 1 (VD: TH 12345678)" maxlength="20" style="margin-bottom:8px;" oninput="updateZipPreview(); buildGroups();">
-        <input type="text" class="field-input" id="serialGcn2" placeholder="Số seri 2" maxlength="20" style="margin-bottom:8px;" oninput="buildGroups();">
-        <input type="text" class="field-input" id="serialGcn3" placeholder="Số seri 3" maxlength="20" oninput="buildGroups();">
+        <label class="config-label">Nhập các Số seri GCN (mỗi số 1 dòng hoặc cách bằng dấu phẩy)</label>
+        <textarea class="field-input" id="multiSerials" rows="4" placeholder="VD: TH 12345678, TH 87654321&#10;TH 11111111" style="margin-bottom:8px; resize:vertical; padding:8px;" oninput="updateZipPreview(); buildGroups();"></textarea>
       </div>
 
       <div class="config-group">
@@ -318,10 +319,21 @@ async function handleMultipleUpload(files) {
 
 function renderWorkspaceFiles() {
   const tbody = document.getElementById('wsFilesBody');
+  const btnMerge = document.getElementById('btnMergeFiles');
+  const checkAll = document.getElementById('checkAllMerge');
+  if (checkAll) checkAll.checked = false;
+  
   if (wsFiles.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 40px; color:var(--text3)">Chưa có file nào.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color:var(--text3)">Chưa có file nào.</td></tr>';
+    if (btnMerge) btnMerge.style.display = 'none';
     return;
   }
+  
+  if (btnMerge) {
+    btnMerge.style.display = 'none'; // Mặc định ẩn, chỉ hiện khi tích chọn >= 2 file
+    btnMerge.innerHTML = '📦 Ghép các file đã chọn';
+  }
+
   tbody.innerHTML = wsFiles.map((f, i) => {
     const isDone = wsFilesStatus[f.name];
     const btnHtml = isDone 
@@ -329,6 +341,7 @@ function renderWorkspaceFiles() {
       : `<button class="btn btn-secondary btn-sm" onclick="processWorkspaceFile('${f.name}', event)">⚡ Xử lý File này</button>`;
     return `
     <tr>
+      <td><input type="checkbox" class="merge-chk" value="${f.name}" onchange="checkMergeBtn()"></td>
       <td>${i+1}</td>
       <td style="font-weight:bold; color:${isDone ? 'var(--text3)' : 'var(--cyan)'}">${f.name}</td>
       <td>${(f.size/1024/1024).toFixed(2)} MB</td>
@@ -336,6 +349,50 @@ function renderWorkspaceFiles() {
     </tr>
   `;
   }).join('');
+}
+
+function toggleAllMerge(checked) {
+  document.querySelectorAll('.merge-chk').forEach(cb => cb.checked = checked);
+  checkMergeBtn();
+}
+
+function checkMergeBtn() {
+  const count = document.querySelectorAll('.merge-chk:checked').length;
+  const btn = document.getElementById('btnMergeFiles');
+  if (btn) btn.style.display = count >= 2 ? 'block' : 'none';
+}
+
+async function mergeWorkspaceFiles() {
+  const checkedFiles = Array.from(document.querySelectorAll('.merge-chk:checked')).map(cb => cb.value);
+  if (!wsSessionId || checkedFiles.length < 2) return;
+  if (!confirm(`Bạn có muốn ghép ${checkedFiles.length} file PDF đã chọn thành 1 file duy nhất để xử lý?`)) return;
+  
+  const btn = document.getElementById('btnMergeFiles');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Đang ghép...';
+  
+  try {
+    const fd = new FormData();
+    fd.append('session_id', wsSessionId);
+    fd.append('files', JSON.stringify(checkedFiles));
+    
+    const r = await fetch(BASE_URL + '/api/merge_pdfs.php', { method: 'POST', body: fd });
+    const d = await r.json();
+    
+    if (!d.success) {
+      alert('Lỗi ghép file: ' + d.error);
+    } else {
+      wsFiles = d.files;
+      renderWorkspaceFiles();
+      toast('Ghép file thành công!', 'success');
+    }
+  } catch (e) {
+    console.error('Lỗi kết nối khi ghép file:', e);
+    alert('Lỗi kết nối khi ghép file!');
+  }
+  
+  btn.disabled = false;
+  btn.innerHTML = '📦 Ghép các file đã chọn';
 }
 
 function processWorkspaceFile(filename, event) {
@@ -806,9 +863,8 @@ function buildGroups() {
   const removeBlank = document.getElementById('removeBlank').checked;
   
   const multipleGcn = document.getElementById('multipleGcn')?.checked;
-  const s1 = document.getElementById('serialGcn1')?.value.trim().toUpperCase();
-  const s2 = document.getElementById('serialGcn2')?.value.trim().toUpperCase();
-  const s3 = document.getElementById('serialGcn3')?.value.trim().toUpperCase();
+  const rawSerials = document.getElementById('multiSerials')?.value || '';
+  const parsedSerials = rawSerials.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(s => s);
 
   // Cập nhật dropdown chọn Seri
   const uniqueSerials = [...new Set(pagesData.map(p => p.serial).filter(s => s))];
@@ -829,15 +885,15 @@ function buildGroups() {
     let serialsToUse = [];
     const code = p.doc_code || 'UNKNOWN';
 
-    if (multipleGcn && (code === 'HSPL' || code === 'NVTC')) {
-        if (s1) serialsToUse.push(s1);
-        if (s2) serialsToUse.push(s2);
-        if (s3) serialsToUse.push(s3);
+    if (multipleGcn && (code === 'GTPL' || code === 'NVTC')) {
+        if (parsedSerials.length > 0) {
+            serialsToUse = [...parsedSerials];
+        }
         if (serialsToUse.length === 0) {
             serialsToUse.push(p.serial || 'UNKNOWN');
         }
     } else if (multipleGcn) {
-        serialsToUse.push(p.serial || s1 || 'UNKNOWN');
+        serialsToUse.push(p.serial || (parsedSerials.length > 0 ? parsedSerials[0] : 'UNKNOWN'));
     } else {
         const serial = (p.serial || defSerial || 'UNKNOWN').toUpperCase();
         // Nếu người dùng chọn Seri ở bước 3, ép tất cả về Seri đó để gom chung 1 hồ sơ
@@ -904,7 +960,9 @@ function doSplit() {
   if (!window._splitGroups?.length) { buildGroups(); }
   let defSerial = document.getElementById('defaultSerial').value.trim().toUpperCase();
   if (document.getElementById('multipleGcn')?.checked) {
-    defSerial = document.getElementById('serialGcn1')?.value.trim().toUpperCase() || defSerial;
+    const rawSerials = document.getElementById('multiSerials')?.value || '';
+    const parsedSerials = rawSerials.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(s => s);
+    defSerial = parsedSerials.length > 0 ? parsedSerials[0] : defSerial;
   }
   const hopHoSo  = document.getElementById('hopHoSo').value.trim();
   const groups    = window._splitGroups;

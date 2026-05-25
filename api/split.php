@@ -8,6 +8,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) jsonResponse(['success'=>false,'error'=>'Dữ liệu không hợp lệ']);
 
 $sid        = preg_replace('/[^a-zA-Z0-9_.]/', '', $input['session_id'] ?? '');
+logActiveUser($sid);
 $groups     = $input['groups'] ?? [];
 $mainSerial = preg_replace('/[^A-Za-z0-9_\-\s]/', '', $input['main_serial'] ?? '');
 // Số hộp hồ sơ (nếu được nhập sẽ ghi đè lên tên ZIP)
@@ -127,7 +128,9 @@ if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
 foreach ($outputFiles as $f) {
     $zip->addFile($sessionOutputDir . $f['file'], $f['file']);
 }
-$zip->close();
+if (!$zip->close()) {
+    jsonResponse(['success'=>false,'error'=>'Lỗi khi lưu file ZIP (Permission Denied). Vui lòng cấp quyền Ghi (Write/Modify) cho thư mục "output" trên server.']);
+}
 
 $downloadUrl = BASE_URL . '/api/download.php'
     . '?sid=' . urlencode($sid) . '&zip=' . urlencode($zipName);
